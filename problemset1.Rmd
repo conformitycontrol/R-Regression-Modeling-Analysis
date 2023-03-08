@@ -1,0 +1,152 @@
+---
+title: "Problem Set 1"
+author: "Brian Gilmore"
+date: "2023-01-28"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+[1] - I have pacman and tidyverse already installed via the packages window on rstudio.
+
+```{r, q1}
+#Q1 Code
+pacman:: p_load(here)
+tinytex::install_tinytex()
+ps_df <- read.csv("ps1-data.csv")
+
+```
+
+[2]
+```{r, q2}
+#Q2 Code
+income_df <- ps_df$income
+average_income <- mean(income_df)
+median_inc <- median(income_df)
+average_income
+median_inc
+```
+[3]
+The mean is the average of a range of values, the sum of all outcomes divided by the total amount of outcomes. The median is the middle of the data when the data is arranged from least to greatest.
+
+[4]
+The distribution of the income is skewed since the median of the data is much less than the mean of the data. This means that there is some large values of income that offset the total mean of the dataset.
+
+[5]
+```{r,q5}
+#Q5 Code
+hist(income_df, xlab = "Income Spread", ylab = "Instances")
+```
+
+
+[6]
+Yes, the data is skewed to the right due to the fact there are outliers in our distribution.There is a tail coming from the right side of our
+histogram. This boosts the mean to a value greater than the median.
+
+[7]
+```{r, q7}
+#Q7 Code
+percentage_i <- colMeans(ps_df[, c(3:9)])*100
+percentage_i
+```
+[8]
+This data allows us to make inferences on the population of 5,000 adults, ages 35-50 living in California who make less than $1,000,000. 
+
+[9]
+```{r, q9}
+#Q9 Code
+library(ggplot2)
+female <- ps_df[ps_df$i_female == 1, ]
+non_female <- ps_df[ps_df$i_female == 0, ]
+combined <- rbind(female, non_female)
+ggplot(combined, aes(x = yrs_education, fill = factor(i_female))) +
+  geom_histogram(binwidth = 1) +
+  facet_grid(i_female ~ .) +
+  scale_fill_manual(values = c("blue", "red"))
+```
+
+[10]
+According to the two histograms above, we can see that there are more instances of years of education for non females at lower years of education. While the data for both groups accumulates between 10-20 years of education on average, we see that non-females have higher amounts of attendance throughout the beginning of the interval. There is a higher density of non-females around 10-15 years of education, and a higher density of females around 18-20 years of education. This indicates that non-females spend less time in education than females.
+
+[11]
+```{r,q11}
+#Q11 Code
+ggplot(ps_df, aes(yrs_education, income_df))+geom_point()
+```
+
+[12]
+I believe that there would be a strong positive correlation between education and income. Based on our scatter plot, we see that the highest instances of income are plotted between the interval of 10-20 years of education. The lowest points of income are between 0-10 years of education. Since higher income holds a higher frequency with an increase in the amount of education, a regression where income is the outcome and education is an explanatory variable will prove a strong relatioship exists between income and education.
+
+[13]
+```{r}
+#Q13 Code
+model <- lm(income_df ~ yrs_education, data = ps_df)
+summary(model)
+
+ggplot(data = ps_df, aes(x = yrs_education, y = income_df)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+```
+
+[14]
+The intercept in the regression output would indicate that with 0 years of education, income would start at -41799.0. The slope coefficient indicates that for every 1 year increase of education, income would increase by 8679.5. Since the p-value is less than 2.2*10^-16, the p-value is very close to 0 and less than .05. This indicates there's a high chance the slope coefficient is significantly different from 0, which means that years of education most likely has an effect on income. 
+
+[15]
+Exogeneity here means that years of education is independent of the error term. In terms of income and education, exogeneity indicates that the income level of an individual doesn't have an influence on education. 
+
+[16]
+Gender could be used as an example of OVB. This regression doesn't take into account that females and non-females have different rates of education, as presented in question 9.
+
+[17]
+```{r}
+#Q17 Code
+model <- lm(income_df ~ i_female, data = ps_df)
+summary(model)
+
+ggplot(data = ps_df, aes(x = i_female, y = income_df)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+The intercept indicates that income equals 93966 for non-females. The slope coefficient indicates that when an individual is female, income decreases -29730.
+
+[18]
+These results indicate that income is lower for females than non-females, but doesn't show that discrimination is the main driver of lower income. While our p-value indicates our findings to be statistically significant, our model is too simple to show causal relationship. Since we only used i_female as an indicator, we can't explicitly state our results are causal. There could be a multitude of other variables that might explain this outcome, such as job type or region. The relationship between income and i_female is likely more complex than our regression suggests.
+
+[19]
+```{r}
+#Q19 Code
+model <- lm(yrs_education ~ i_female, data = ps_df)
+summary(model)
+
+ggplot(data = ps_df, aes(x = i_female, y = yrs_education)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+The intercept indicates that when an individual is not female, the outcome is 13.83 years of education. The slope coefficient indicates that if an individual is female, years of education increases by .38129. 
+
+[20]
+Since our regressions in 17 and 19 prove to be statistically significant, omitting i_female from our regression of income on education would create OVB. Our regressions in 17 and 19 show that females in our sample have more years of education, but earn less income than non-females. Omitting this information in our regression on income may lead to biased results.
+
+[21]
+```{r}
+#Q21 Code
+model <- lm(income_df ~ i_female + yrs_education + i_female:yrs_education, data = ps_df)
+summary(model)
+
+```
+
+[22]
+The intercept indicates income when an individual isn't female, 0 years of education. The slope coefficient for i_female indicates that when an individual is female, income increases 25392.9. The slope coefficient for yrs_education indicates that a 1 year increase in education results in an income increase of 10850.5. The slope coefficient for the interaction between females and years of education implies that the effect of yrs_education on income_df is different for non-females and females. -4169.6 represents the difference in the effect of yrs_education on income_df between females and non-females, showing that years of education and income have a weaker relationship for females than non-females.
+
+[23]
+Since our p-value in our last regression proves our results to be statistically significant, the return to education for females is smaller than the return to education for non-females. This may explain why females spend more time in education in comparison to non-females.
+
+[24]
+The relationship between education and income seems to be non-linear. If we examine our histogram in [5], we can see that the data is skewed right. A normally distributed relationship will more closely represent a linear model. If we were to regress the log of income, OLS requires a linear regression where the residuals of the model are normally distributed. Otherwise we would be taking the log of data less than or equal to 0, which would return undefined.
+
+[25]
+A log-linear approach will help normalize a distribution if the model isn't linear. Expressing each coefficient as a percentage change rather than a determined value helps us develop a better understanding of the average effects of variables on an outcome. This would make it easier to analyze as it would get rid of outliers responsible for skewing our regression.

@@ -1,0 +1,282 @@
+---
+title: "Problem Set 2"
+author: "Brian Gilmore"
+date: "2023-02-09"
+output:
+  html_document:
+    df_print: paged
+---
+[1]
+
+```{r}
+#Q1 Code
+library(pacman)
+pacman::p_load(Ecdat, magrittr, dplyr, here, ggplot2, fixest)
+
+ps2_df <- read.csv("ps2-data.csv")
+nrow(ps2_df) == 7500
+```
+
+[2]
+
+```{r}
+#Q2 Code
+non_black <- ps2_df[ps2_df$i_black == 0, ]
+black <- ps2_df[ps2_df$i_black == 1, ]
+
+mean_black_income <- mean(black$income)
+mean_nonblack_income <- mean(non_black$income)
+mean_black_education <- mean(black$yrs_education)
+mean_nonblack_education <- mean(non_black$yrs_education)
+
+mean_black_education
+mean_nonblack_education
+mean_black_income
+mean_nonblack_income
+
+```
+[3]
+
+```{r}
+#Q3 Code
+
+inc_model <- lm(income ~ i_black, ps2_df)
+summary(inc_model)
+
+```
+
+The intercept is statistically different from 0, and tells us that we can expect a non-black individual to earn about 79569. The coefficient on i_black is also statistically different from 0 and it tells us that a black individual will earn 11763 less than someone who isn't black. The difference is statistically significant since the p-value is less than .05, indicating the average difference in income when i_black == 1 is -11763. This average difference is also consistent with what we found in question 2, as 67806.06 - 79569.21 is also equivalent to -11763.
+
+[04]
+
+```{r}
+#Q4 Code
+ed_model <- lm(yrs_education ~ i_black, ps2_df)
+summary(ed_model)
+```
+
+The intercept is statistically different from 0 and it tells us that we can expect an individual who isn't black to have 14.02 years of education. The coefficient of i_black is not statistically significant as the p-value exceeds .05, at .07555. However, the effect on yrs_education does match our findings in question 2 as 14.4022 - 14.02774 is equivalent to 0.37446. This would indicate that a black individual to have 14.39 years of education approximately.  
+
+[5]
+
+```{r}
+#Q5 Code
+model_ba <- lm(yrs_education ~ i_black + age, ps2_df)
+summary(model_ba)
+```
+
+The intercept and age coefficient is statistically different from 0, however, i_black's coefficient is not. The intercept tells us that we can expect a non-black individual to have an average of about 16.36 years of education. The coefficient on i_black indicates that a black individual will have about 0.35 more years of education than someone who isn't black. The coefficient on age tells us that we can expect years of education to decrease about -0.055 with every per unit increase of age. The regression is statistically significant at the 5% level.
+
+[6]
+
+```{r}
+#Q6 Code
+ps2_df %<>% mutate(resid1 = resid(model_ba))
+
+ggplot(data = ps2_df, aes(x = age, y = resid1)) + 
+  geom_point(alpha = .1) +
+  labs(x = "Age", y = "Residuals (OLS)")
+
+```
+
+[7]
+There appears to be some non-constant variance, however it is unclear from the plot. 
+
+[8]
+
+```{r}
+#Q8 Code
+
+ggplot(data = ps2_df, aes(x = age, y = resid1)) + 
+  labs(x = "Age", y = "Residuals (OLS)") +
+  ggtitle("Black Individuals") +
+  scale_color_discrete(name = "Black") +
+  geom_point(data = subset(ps2_df, i_black == 1), color = "red")
+
+ggplot(data = ps2_df, aes(x = age, y = resid1)) + 
+  labs(x = "Age", y = "Residuals (OLS)") +
+  ggtitle("Non-Black Individuals") +
+  scale_color_discrete(name = "Black") +
+  geom_point(data = subset(ps2_df, i_black == 0), color = "blue")
+
+```
+
+This plot reveals that the variance of our residuals change depending on our predictor variable. For black individuals we see that our residuals are higher than for non-black individuals.
+
+[9]
+Heteroskedasticity violates the assumption of constant variance in OLS regression. With this violation, our disturbances will have different variances, changing with each explanatory variable we add. However while our estimates of coefficients are still unbiased, OLS standard errors are now biased in the presence of heteroskedasticity. This results in wrong confidence intervals, problems for hypothesis testing, and making it challenging to learn much about our sample without sound inference.
+
+
+[10]
+First we order our observations by variable of interest:
+
+```{r}
+#Q10 Code
+ps2_df %<>% arrange(age)
+head(ps2_df)
+```
+
+Then we split our data into 2 groups:
+
+```{r}
+#Q10 Code
+(n_GQ = as.integer((3/8)*nrow(ps2_df)))
+```
+Then we run separate regressions on yrs_education with the indicator i_black and age:
+
+```{r}
+#Q10 Code
+
+# First for higher ages
+
+mod_g1 = lm(
+  data = tail(ps2_df, n = n_GQ),
+  yrs_education ~ i_black + age
+)
+# Now for lower ages
+
+mod_g2 = lm(
+  data = head(ps2_df, n = n_GQ),
+  yrs_education ~ i_black + age
+)
+```
+
+Then we calculate the sum of squared errors:
+
+```{r}
+#Q10 Code
+
+# First getting residuals from both regressions 
+e_g1 = resid(mod_g1)
+e_g2 = resid(mod_g2)
+# Then summing their squares 
+sse_g1 = sum(e_g1 ^ 2) 
+sse_g2 = sum(e_g2 ^ 2) 
+```
+
+Then we calculate the GQ Test Stat and its p-value:
+
+```{r}
+#Q10 Code
+
+(stat_GQ = (sse_g2/sse_g1))
+
+# Getting the number of coefficients we estimated 
+k = length(model_ba$coefficients)
+
+# pf gives probability from an f-dist
+(p_GQ = pf(
+  q = stat_GQ, 
+  df1 = n_GQ - k, 
+  df2 = n_GQ - k, 
+  lower.tail = F
+)) 
+
+```
+
+Finally we compare our values and state hypotheses:
+
+H0: The variances of the residuals from regressions using the first 3/8 and the last 3/8 of the dataset ordered by age are the same. σ21=σ22
+
+Ha: The variances of the residuals from regressions using the first 3/8 and the last 3/8 of the dataset ordered by age are different. σ21≠σ22
+
+Conclusion, can we reject H0?
+1 > .7496:
+Yes! At the 5% significance level.
+
+[11]
+Goldfeld Quandt requires that disturbances follow normal distributions and it assumes a very specific form of heteroskedasticity from only linear regression models. The results of the test also only indicate whether or not heteroskedasticity is present, without providing much information about the type of heteroskedasticity. Outliers also have a strong effect on the results of the test, which indicates the test is sensitive to extreme residuals. Overall the test performs well if the potential form of heteroskedasticity is known, the distribution of disturbances is normal, and there are minimal outliers in the residuals.
+
+[12]
+The White test assumes u^2 is uncorrelated with the explanatory variables, their squares, and the first-degree interactions. I include all of my code below in this one block:
+
+```{r}
+#Q12 Code
+
+#First we run our regression
+mod_ols <- lm(yrs_education ~ i_black + age, ps2_df)
+
+# Then we take the residuals of the regression
+e_white = resid(mod_ols)
+
+# Regressing squared residuals on terms 
+mod_white = lm(
+  data = ps2_df,
+  I(e_white^2) ~
+    i_black + age + i_black:age + I(age^2)
+) #we don't include squared binary variables
+
+
+# Getting r-squared
+(r2_white = summary(mod_white)$r.squared)
+
+# Calculate the test stat 
+stat_white = nrow(ps2_df)* r2_white
+
+# Calculating the p-value from chi-sq distribution
+pchisq(q = stat_white, df = 4, lower.tail = F)
+
+(summary(mod_white))
+
+```
+
+With a p-value of 1.132913e-06, we can reject the null hypothesis that says there is homoskedasticity in the residuals. This indicates the variance of the residuals is not constant, and that heteroskedasticity is present in the residuals.
+
+[13]
+First we take our regression:
+
+```{r}
+#Q13 Code
+
+mod_feols <- feols(yrs_education ~ i_black + age, data = ps2_df, )
+
+# We then examine the usual standard errors 
+summary(mod_feols)
+```
+
+Now we look at the robust standard errors:
+
+```{r}
+#Q13 Code
+
+# Het-robust standard errors 
+summary(mod_feols, vcov = "hetero")
+```
+
+[14]
+Updating the standard errors to be robust to heteroskedasticity adjusts for the original bias held by standard errors in the previous regression. for i_black. Now our inferences are more accurate about the effect of age and race on yrs_education, and our i_black binary variable is statistically significant with a p-value of 4.6766e-02.
+
+[15]
+The coefficients remain unbiased, as robust to heteroskedasticity standard errors don't have an effect on the relationship between independent and dependent variables. The only difference now is that the standard errors are based on a more accurate estimate of the variance of the coefficients.
+
+[16]
+The drawback to using WLS in this context is that we would need to know the functional form of the heteroskedasticity where σ^2_i =σ^2h(x_i) or σ^2_i. This would give us trouble when trying to apply the appropriate weights to each observation. 
+
+[17]
+
+```{r}
+#Q17 Code
+
+
+# First let's run the original regression
+mod_cluster = feols(
+  data = ps2_df,
+  fml = yrs_education ~ i_black,
+  cluster = ~ age
+)
+
+# Summary of results 
+summary(mod_cluster)
+```
+
+[18]
+Clustering changed the standard errors of the intercept and i_black in the regression. This also changed the p-value of i_black, which strongly indicates statistical significance. Calculating the standard errors with this method solves correlated disturbances between observations of i_black in the age cluster. These changes indicate the covariance between the error terms of i_black and age did not equal zero.
+
+[19]
+We adjust our standard errors to be robust to clustering to reduce non-zero covariance between any two error terms. For example black individuals belonging to a certain age group may have correlated disturbances in our regression since they experience similar environments and conditions. Clustering aims to remove dependencies of the error term when calculating standard errors in a regression. 
+
+[20]
+Another example of a dimension where our sample could have correlated disturbances is our variable income, where many individual demographics within our sample may have correlated disturbances. For example, it is likely that many females belonging to a certain income level will have correlated disturbances since they may experience similar conditions. 
+
+
+
